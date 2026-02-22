@@ -27,6 +27,7 @@ type settingsPayload struct {
 type generatePayload struct {
 	Prompt         string `json:"prompt"`
 	GiantessCount  int    `json:"giantess_count"`
+	GiantessName   string `json:"giantess_name"`
 	GiantessAction string `json:"giantess_action"`
 	TiniesMode     string `json:"tinies_mode"`
 	TinyCount      int    `json:"tiny_count"`
@@ -155,6 +156,7 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	characterDefinition, err := buildCharacterDefinition(
 		payload.GiantessCount,
+		payload.GiantessName,
 		payload.GiantessAction,
 		tiniesMode,
 		payload.TinyCount,

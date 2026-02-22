@@ -14,6 +14,7 @@ const artStyleSelectorEl = document.getElementById('artStyleSelector')
 const bodyFramingSelectorEl = document.getElementById('bodyFramingSelector')
 const cameraSelectorEl = document.getElementById('cameraSelector')
 const giantessCountEl = document.getElementById('giantessCount')
+const giantessNameEl = document.getElementById('giantessName')
 const giantessActionEl = document.getElementById('giantessAction')
 const tiniesModeEl = document.getElementById('tiniesMode')
 const tinyCountWrapEl = document.getElementById('tinyCountWrap')
@@ -76,6 +77,11 @@ function selectedTiniesMode() {
 function selectedGiantessAction() {
   if (!giantessActionEl) return ''
   return String(giantessActionEl.value || '').trim()
+}
+
+function selectedGiantessName() {
+  if (!giantessNameEl) return ''
+  return String(giantessNameEl.value || '').trim()
 }
 
 function selectedTinyCount() {
@@ -352,6 +358,7 @@ async function generate() {
       body: JSON.stringify({
         prompt,
         giantess_count: selectedGiantessCount(),
+        giantess_name: selectedGiantessName(),
         giantess_action: selectedGiantessAction(),
         tinies_mode: selectedTiniesMode(),
         tiny_count: selectedTinyCount(),

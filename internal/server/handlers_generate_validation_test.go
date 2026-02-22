@@ -89,6 +89,7 @@ func TestHandleGenerateAcceptsActionFields(t *testing.T) {
 	body := `{
 		"prompt":"scene",
 		"giantess_count":1,
+		"giantess_name":"Alice",
 		"giantess_action":"destroying buildings",
 		"tinies_mode":"count",
 		"tiny_count":2,

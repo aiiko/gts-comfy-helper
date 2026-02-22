@@ -29,8 +29,8 @@ func buildFinalPrompt(positiveTags, characterDefinition, userPrompt, artStyle, b
 	return strings.Join(parts, ", ")
 }
 
-func buildCharacterDefinition(giantessCount int, giantessAction, tiniesMode string, tinyCount int, tinyGender, tinyDescriptor, tinyAction string) (string, error) {
-	giantessPhrase, err := buildGiantessPhrase(giantessCount, giantessAction)
+func buildCharacterDefinition(giantessCount int, giantessName, giantessAction, tiniesMode string, tinyCount int, tinyGender, tinyDescriptor, tinyAction string) (string, error) {
+	giantessPhrase, err := buildGiantessPhrase(giantessCount, giantessName, giantessAction)
 	if err != nil {
 		return "", err
 	}
@@ -41,24 +41,33 @@ func buildCharacterDefinition(giantessCount int, giantessAction, tiniesMode stri
 	return giantessPhrase + ", " + tiniesPhrase, nil
 }
 
-func buildGiantessPhrase(giantessCount int, giantessAction string) (string, error) {
+func buildGiantessPhrase(giantessCount int, giantessName, giantessAction string) (string, error) {
+	name := normalizeName(giantessName)
 	action := normalizeText(giantessAction)
+	descriptor := ""
+	head := ""
+
 	switch giantessCount {
 	case 1:
-		phrase := "1girl, a giantess girl"
-		if action != "" {
-			phrase += " " + action
-		}
-		return phrase, nil
+		head = "1girl"
+		descriptor = "a giantess girl"
 	case 2:
-		phrase := "2girls, two giantess girls"
-		if action != "" {
-			phrase += " " + action
-		}
-		return phrase, nil
+		head = "2girls"
+		descriptor = "two giantess girls"
 	default:
 		return "", fmt.Errorf("giantess_count must be 1 or 2")
 	}
+
+	if action != "" {
+		descriptor += " " + action
+	}
+
+	parts := []string{head}
+	if name != "" {
+		parts = append(parts, name)
+	}
+	parts = append(parts, descriptor)
+	return strings.Join(parts, ", "), nil
 }
 
 func buildTiniesPhrase(tiniesMode string, tinyCount int, tinyGender, tinyDescriptor, tinyAction string) (string, error) {
@@ -105,4 +114,8 @@ func buildTiniesPhrase(tiniesMode string, tinyCount int, tinyGender, tinyDescrip
 
 func normalizeText(raw string) string {
 	return strings.ToLower(strings.Join(strings.Fields(raw), " "))
+}
+
+func normalizeName(raw string) string {
+	return strings.Join(strings.Fields(raw), " ")
 }
