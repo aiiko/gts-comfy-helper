@@ -48,3 +48,23 @@ func TestCanonicalOptionCameraSelector(t *testing.T) {
 		t.Fatalf("unexpected camera selector canonical value: %q", got)
 	}
 }
+
+func TestCanonicalOptionTiniesMode(t *testing.T) {
+	got, ok := canonicalOption(" GROUP ", tiniesModeOptionsMap)
+	if !ok {
+		t.Fatalf("expected valid tinies mode")
+	}
+	if got != "group" {
+		t.Fatalf("unexpected tinies mode canonical value: %q", got)
+	}
+}
+
+func TestCanonicalOptionTinyGender(t *testing.T) {
+	got, ok := canonicalOption(" Female ", tinyGenderOptionsMap)
+	if !ok {
+		t.Fatalf("expected valid tiny gender")
+	}
+	if got != "female" {
+		t.Fatalf("unexpected tiny gender canonical value: %q", got)
+	}
+}

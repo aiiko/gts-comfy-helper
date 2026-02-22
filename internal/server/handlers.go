@@ -26,6 +26,11 @@ type settingsPayload struct {
 
 type generatePayload struct {
 	Prompt         string `json:"prompt"`
+	GiantessCount  int    `json:"giantess_count"`
+	TiniesMode     string `json:"tinies_mode"`
+	TinyCount      int    `json:"tiny_count"`
+	TinyGender     string `json:"tiny_gender"`
+	TinyDescriptor string `json:"tiny_descriptor"`
 	ArtStyle       string `json:"art_style"`
 	BodyFraming    string `json:"body_framing"`
 	CameraSelector string `json:"camera_selector"`
@@ -100,10 +105,6 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload.Prompt = strings.TrimSpace(payload.Prompt)
-	if payload.Prompt == "" {
-		writeAPIError(w, http.StatusBadRequest, "invalid_request", "prompt is required")
-		return
-	}
 	aspectRatio := strings.ToLower(strings.TrimSpace(payload.AspectRatio))
 	if aspectRatio == "" {
 		aspectRatio = "square"
@@ -132,6 +133,29 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request", "body_framing must match one of supported body framing values")
 		return
 	}
+	if payload.GiantessCount != 1 && payload.GiantessCount != 2 {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "giantess_count must be 1 or 2")
+		return
+	}
+	tiniesMode, ok := canonicalOption(payload.TiniesMode, tiniesModeOptionsMap)
+	if !ok {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "tinies_mode must be count or group")
+		return
+	}
+	tinyGender, ok := canonicalOption(payload.TinyGender, tinyGenderOptionsMap)
+	if !ok {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "tiny_gender must be one of male, female, girl, or boy")
+		return
+	}
+	if tiniesMode == "count" && payload.TinyCount <= 0 {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "tiny_count must be a positive integer when tinies_mode is count")
+		return
+	}
+	characterDefinition, err := buildCharacterDefinition(payload.GiantessCount, tiniesMode, payload.TinyCount, tinyGender, payload.TinyDescriptor)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
 
 	settings, err := a.db.Settings(r.Context())
 	if err != nil {
@@ -140,7 +164,7 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	positive := strings.TrimSpace(settings["positive_tags"])
 	negative := strings.TrimSpace(settings["negative_tags"])
-	finalPrompt := buildFinalPrompt(positive, payload.Prompt, artStyle, bodyFraming, cameraSelector)
+	finalPrompt := buildFinalPrompt(positive, characterDefinition, payload.Prompt, artStyle, bodyFraming, cameraSelector)
 
 	job, err := a.db.CreateJob(r.Context(), storage.Job{
 		ID:             uuid.NewString(),

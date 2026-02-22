@@ -31,9 +31,23 @@ var cameraSelectorOptions = []string{
 	"wide shot",
 }
 
+var tiniesModeOptions = []string{
+	"count",
+	"group",
+}
+
+var tinyGenderOptions = []string{
+	"male",
+	"female",
+	"girl",
+	"boy",
+}
+
 var artStyleOptionsMap = buildOptionsMap(artStyleOptions)
 var bodyFramingOptionsMap = buildOptionsMap(bodyFramingOptions)
 var cameraSelectorOptionsMap = buildOptionsMap(cameraSelectorOptions)
+var tiniesModeOptionsMap = buildOptionsMap(tiniesModeOptions)
+var tinyGenderOptionsMap = buildOptionsMap(tinyGenderOptions)
 
 func buildOptionsMap(options []string) map[string]string {
 	out := make(map[string]string, len(options))

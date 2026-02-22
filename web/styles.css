@@ -46,6 +46,12 @@ h2 {
   letter-spacing: 0.2px;
 }
 
+h3 {
+  margin: 0;
+  letter-spacing: 0.2px;
+  font-size: 1rem;
+}
+
 .subtitle {
   margin: 0.4rem 0 0;
   color: var(--muted);
@@ -63,6 +69,18 @@ h2 {
 }
 
 .prompt-selectors-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.character-section {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
+}
+
+.character-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
@@ -162,11 +180,26 @@ select {
   font: inherit;
 }
 
+input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #2f3f64;
+  background: rgba(8, 14, 26, 0.85);
+  color: var(--text);
+  padding: 0.72rem 0.85rem;
+  font: inherit;
+}
+
 textarea:focus,
 select:focus,
+input:focus,
 button:focus {
   outline: 2px solid var(--accent-2);
   outline-offset: 2px;
+}
+
+.is-hidden {
+  display: none;
 }
 
 button {
@@ -330,6 +363,10 @@ button.ghost {
   }
 
   .prompt-selectors-row {
+    grid-template-columns: 1fr;
+  }
+
+  .character-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -13,6 +13,13 @@ const negativeTagsEl = document.getElementById('negativeTags')
 const artStyleSelectorEl = document.getElementById('artStyleSelector')
 const bodyFramingSelectorEl = document.getElementById('bodyFramingSelector')
 const cameraSelectorEl = document.getElementById('cameraSelector')
+const giantessCountEl = document.getElementById('giantessCount')
+const tiniesModeEl = document.getElementById('tiniesMode')
+const tinyCountWrapEl = document.getElementById('tinyCountWrap')
+const tinyCountEl = document.getElementById('tinyCount')
+const tinyGenderWrapEl = document.getElementById('tinyGenderWrap')
+const tinyGenderEl = document.getElementById('tinyGender')
+const tinyDescriptorEl = document.getElementById('tinyDescriptor')
 const saveSettingsBtn = document.getElementById('saveSettingsBtn')
 const saveStatusEl = document.getElementById('saveStatus')
 
@@ -48,6 +55,51 @@ function selectedArtStyle() {
 function selectedBodyFraming() {
   if (!bodyFramingSelectorEl) return ''
   return String(bodyFramingSelectorEl.value || '').trim()
+}
+
+function selectedGiantessCount() {
+  if (!giantessCountEl) return 1
+  const value = Number.parseInt(String(giantessCountEl.value || '').trim(), 10)
+  return value === 2 ? 2 : 1
+}
+
+function selectedTiniesMode() {
+  if (!tiniesModeEl) return 'count'
+  const mode = String(tiniesModeEl.value || '').trim().toLowerCase()
+  return mode === 'group' ? 'group' : 'count'
+}
+
+function selectedTinyCount() {
+  if (!tinyCountEl) return 1
+  const value = Number.parseInt(String(tinyCountEl.value || '').trim(), 10)
+  if (!Number.isFinite(value) || value <= 0) return 1
+  return value
+}
+
+function selectedTinyGender() {
+  if (!tinyGenderEl) return ''
+  return String(tinyGenderEl.value || '').trim()
+}
+
+function selectedTinyDescriptor() {
+  if (!tinyDescriptorEl) return ''
+  return String(tinyDescriptorEl.value || '').trim()
+}
+
+function syncTiniesModeUI() {
+  const isGroup = selectedTiniesMode() === 'group'
+  if (tinyCountWrapEl) {
+    tinyCountWrapEl.classList.toggle('is-hidden', isGroup)
+  }
+  if (tinyGenderWrapEl) {
+    tinyGenderWrapEl.classList.toggle('is-hidden', isGroup)
+  }
+  if (tinyCountEl) {
+    tinyCountEl.disabled = isGroup
+  }
+  if (tinyGenderEl) {
+    tinyGenderEl.disabled = isGroup
+  }
 }
 
 function setAspectRatio(value) {
@@ -251,10 +303,6 @@ async function pollJobStatus() {
 
 async function generate() {
   const prompt = promptEl.value.trim()
-  if (!prompt) {
-    metaLineEl.textContent = 'El prompt es obligatorio.'
-    return
-  }
   const aspectRatio = selectedAspectRatio()
   const size = aspectSizeMap[aspectRatio] || aspectSizeMap.square
   activeJobAspectRatio = aspectRatio
@@ -271,6 +319,11 @@ async function generate() {
       method: 'POST',
       body: JSON.stringify({
         prompt,
+        giantess_count: selectedGiantessCount(),
+        tinies_mode: selectedTiniesMode(),
+        tiny_count: selectedTinyCount(),
+        tiny_gender: selectedTinyGender(),
+        tiny_descriptor: selectedTinyDescriptor(),
         art_style: selectedArtStyle(),
         body_framing: selectedBodyFraming(),
         camera_selector: selectedCameraSelector(),
@@ -316,6 +369,11 @@ imageModalEl.addEventListener('click', (event) => {
     closeImageModal()
   }
 })
+if (tiniesModeEl) {
+  tiniesModeEl.addEventListener('change', () => {
+    syncTiniesModeUI()
+  })
+}
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && imageModalEl.classList.contains('open')) {
     closeImageModal()
@@ -323,6 +381,7 @@ document.addEventListener('keydown', (event) => {
 })
 
 resetPreview()
+syncTiniesModeUI()
 void (async () => {
   try {
     await loadSettings()

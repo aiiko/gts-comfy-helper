@@ -90,6 +90,43 @@
               </select>
             </div>
           </div>
+          <div class="character-section">
+            <h3>Character definition</h3>
+            <div class="character-grid">
+              <div class="prompt-row-inline">
+                <label for="giantessCount">Giantess count</label>
+                <select id="giantessCount">
+                  <option value="1" selected>1 giantess</option>
+                  <option value="2">2 giantess</option>
+                </select>
+              </div>
+              <div class="prompt-row-inline">
+                <label for="tiniesMode">Tinies mode</label>
+                <select id="tiniesMode">
+                  <option value="count" selected>Count</option>
+                  <option value="group">Group</option>
+                </select>
+              </div>
+              <div class="prompt-row-inline" id="tinyCountWrap">
+                <label for="tinyCount">Tiny count</label>
+                <input id="tinyCount" type="number" min="1" step="1" value="1" />
+              </div>
+              <div class="prompt-row-inline" id="tinyGenderWrap">
+                <label for="tinyGender">Tiny gender (optional)</label>
+                <select id="tinyGender">
+                  <option value="" selected>None</option>
+                  <option value="male">male</option>
+                  <option value="female">female</option>
+                  <option value="girl">girl</option>
+                  <option value="boy">boy</option>
+                </select>
+              </div>
+              <div class="prompt-row-inline">
+                <label for="tinyDescriptor">Tiny descriptor (optional)</label>
+                <input id="tinyDescriptor" type="text" placeholder="white" />
+              </div>
+            </div>
+          </div>
           <button id="generateBtn" type="button">Generar</button>
         </div>
       </section>
