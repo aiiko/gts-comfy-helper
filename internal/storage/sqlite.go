@@ -116,8 +116,9 @@ func parseDBTime(raw string) time.Time {
 
 func (d *DB) ensureDefaultSettings(ctx context.Context) error {
 	defaults := map[string]string{
-		"positive_tags": "best quality, masterpiece, absurdres",
-		"negative_tags": "worst quality, low quality, blurry, text, watermark",
+		"positive_tags":     "best quality, masterpiece, absurdres",
+		"negative_tags":     "worst quality, low quality, blurry, text, watermark",
+		"last_aspect_ratio": "square",
 	}
 	return d.UpsertSettings(ctx, defaults)
 }

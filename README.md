@@ -11,6 +11,7 @@ Aplicacion basica en Go + HTML + JavaScript + CSS para generar imagenes en Comfy
 - Configuracion persistente en SQLite:
   - `positive_tags`
   - `negative_tags`
+  - `last_aspect_ratio`
 - `positive_tags` se anteponen al prompt del usuario
 - Workflow JSON basado en `GTS-VN-Sim`
 

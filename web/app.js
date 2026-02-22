@@ -1,7 +1,11 @@
 const promptEl = document.getElementById('prompt')
 const generateBtn = document.getElementById('generateBtn')
+const aspectRatioEls = document.querySelectorAll('input[name="aspectRatio"]')
 const previewImageEl = document.getElementById('previewImage')
 const previewPlaceholderEl = document.getElementById('previewPlaceholder')
+const imageModalEl = document.getElementById('imageModal')
+const imageModalImgEl = document.getElementById('imageModalImg')
+const imageModalCloseEl = document.getElementById('imageModalClose')
 const statusPillEl = document.getElementById('statusPill')
 const metaLineEl = document.getElementById('metaLine')
 const positiveTagsEl = document.getElementById('positiveTags')
@@ -13,6 +17,26 @@ let activeJobID = ''
 let previewSeq = 0
 let previewTimer = null
 let jobTimer = null
+const aspectSizeMap = {
+  portrait: { width: 896, height: 1152 },
+  square: { width: 1024, height: 1024 },
+  landscape: { width: 1152, height: 896 },
+}
+
+function selectedAspectRatio() {
+  for (const optionEl of aspectRatioEls) {
+    if (optionEl.checked) return optionEl.value
+  }
+  return 'square'
+}
+
+function setAspectRatio(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  const target = aspectSizeMap[normalized] ? normalized : 'square'
+  for (const optionEl of aspectRatioEls) {
+    optionEl.checked = optionEl.value === target
+  }
+}
 
 function setPill(kind, text) {
   statusPillEl.className = `pill ${kind}`
@@ -27,12 +51,29 @@ function setPreviewImage(src) {
 }
 
 function resetPreview() {
+  closeImageModal()
   previewImageEl.removeAttribute('src')
   previewImageEl.style.display = 'none'
   previewPlaceholderEl.style.display = 'grid'
   previewPlaceholderEl.textContent = 'No hay generación activa'
   metaLineEl.textContent = ''
   setPill('waiting', 'Esperando')
+}
+
+function openImageModal(src) {
+  const imageSrc = String(src || '').trim()
+  if (!imageSrc) return
+  imageModalImgEl.src = imageSrc
+  imageModalEl.classList.add('open')
+  imageModalEl.setAttribute('aria-hidden', 'false')
+  document.body.style.overflow = 'hidden'
+}
+
+function closeImageModal() {
+  imageModalEl.classList.remove('open')
+  imageModalEl.setAttribute('aria-hidden', 'true')
+  imageModalImgEl.removeAttribute('src')
+  document.body.style.overflow = ''
 }
 
 async function requestJSON(path, options = {}) {
@@ -53,6 +94,7 @@ async function loadSettings() {
     const settings = await requestJSON('/api/settings')
     positiveTagsEl.value = settings.positive_tags || ''
     negativeTagsEl.value = settings.negative_tags || ''
+    setAspectRatio(settings.last_aspect_ratio)
     saveStatusEl.textContent = 'Configuración cargada.'
   } catch (error) {
     saveStatusEl.textContent = `Error cargando configuración: ${error.message}`
@@ -155,6 +197,8 @@ async function generate() {
     metaLineEl.textContent = 'El prompt es obligatorio.'
     return
   }
+  const aspectRatio = selectedAspectRatio()
+  const size = aspectSizeMap[aspectRatio] || aspectSizeMap.square
   generateBtn.disabled = true
   stopPolling()
   previewSeq = 0
@@ -166,7 +210,12 @@ async function generate() {
   try {
     const result = await requestJSON('/api/generate', {
       method: 'POST',
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({
+        prompt,
+        aspect_ratio: aspectRatio,
+        width: size.width,
+        height: size.height,
+      }),
     })
     activeJobID = String(result.job_id || '').trim()
     if (!activeJobID) throw new Error('No se recibió job_id')
@@ -191,6 +240,23 @@ positiveTagsEl.addEventListener('blur', () => {
 })
 negativeTagsEl.addEventListener('blur', () => {
   void saveSettings()
+})
+previewImageEl.addEventListener('click', () => {
+  if (previewImageEl.style.display === 'none') return
+  openImageModal(previewImageEl.src)
+})
+imageModalCloseEl.addEventListener('click', () => {
+  closeImageModal()
+})
+imageModalEl.addEventListener('click', (event) => {
+  if (event.target === imageModalEl) {
+    closeImageModal()
+  }
+})
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && imageModalEl.classList.contains('open')) {
+    closeImageModal()
+  }
 })
 
 resetPreview()

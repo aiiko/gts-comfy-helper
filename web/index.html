@@ -18,6 +18,23 @@
         <div class="prompt-row">
           <label for="prompt">Prompt</label>
           <textarea id="prompt" rows="3" placeholder="Describe la escena..."></textarea>
+          <div class="aspect-row" role="radiogroup" aria-label="Aspect ratio">
+            <span class="aspect-label">Aspect ratio</span>
+            <div class="aspect-options">
+              <label class="aspect-option">
+                <input type="radio" name="aspectRatio" value="portrait" />
+                <span>Portrait: 896x1152</span>
+              </label>
+              <label class="aspect-option">
+                <input type="radio" name="aspectRatio" value="square" checked />
+                <span>Square: 1024x1024</span>
+              </label>
+              <label class="aspect-option">
+                <input type="radio" name="aspectRatio" value="landscape" />
+                <span>Landscape: 1152x896</span>
+              </label>
+            </div>
+          </div>
           <button id="generateBtn" type="button">Generar</button>
         </div>
       </section>
@@ -53,6 +70,10 @@
         <p id="saveStatus" class="meta"></p>
       </section>
     </main>
+    <div id="imageModal" class="image-modal" aria-hidden="true">
+      <button id="imageModalClose" class="image-modal-close" type="button" aria-label="Cerrar imagen">×</button>
+      <img id="imageModalImg" alt="Imagen en pantalla completa" />
+    </div>
 
     <script src="/app.js" defer></script>
   </body>

@@ -24,7 +24,10 @@ type settingsPayload struct {
 }
 
 type generatePayload struct {
-	Prompt string `json:"prompt"`
+	Prompt      string `json:"prompt"`
+	AspectRatio string `json:"aspect_ratio"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
 }
 
 func (a *App) handleGetSettings(w http.ResponseWriter, r *http.Request) {
@@ -34,8 +37,9 @@ func (a *App) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"positive_tags": strings.TrimSpace(settings["positive_tags"]),
-		"negative_tags": strings.TrimSpace(settings["negative_tags"]),
+		"positive_tags":     strings.TrimSpace(settings["positive_tags"]),
+		"negative_tags":     strings.TrimSpace(settings["negative_tags"]),
+		"last_aspect_ratio": strings.TrimSpace(settings["last_aspect_ratio"]),
 	})
 }
 
@@ -72,6 +76,25 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request", "prompt is required")
 		return
 	}
+	aspectRatio := strings.ToLower(strings.TrimSpace(payload.AspectRatio))
+	if aspectRatio == "" {
+		aspectRatio = "square"
+	}
+	width, height, ok := dimensionsForAspect(aspectRatio)
+	if !ok {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "aspect_ratio must be portrait, square, or landscape")
+		return
+	}
+	if payload.Width > 0 && payload.Height > 0 && (payload.Width != width || payload.Height != height) {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "width/height do not match aspect_ratio")
+		return
+	}
+	if err := a.db.UpsertSettings(r.Context(), map[string]string{
+		"last_aspect_ratio": aspectRatio,
+	}); err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "save generation settings: "+err.Error())
+		return
+	}
 
 	settings, err := a.db.Settings(r.Context())
 	if err != nil {
@@ -98,12 +121,30 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go a.processGenerateJob(context.Background(), job)
+	go a.processGenerateJob(context.Background(), job, width, height)
 
 	writeJSON(w, http.StatusAccepted, map[string]any{
-		"job_id": job.ID,
-		"status": job.Status,
+		"job_id":       job.ID,
+		"status":       job.Status,
+		"aspect_ratio": aspectRatio,
+		"width":        width,
+		"height":       height,
 	})
+}
+
+func dimensionsForAspect(aspectRatio string) (int, int, bool) {
+	switch strings.ToLower(strings.TrimSpace(aspectRatio)) {
+	case "":
+		return 1024, 1024, true
+	case "portrait":
+		return 896, 1152, true
+	case "square":
+		return 1024, 1024, true
+	case "landscape":
+		return 1152, 896, true
+	default:
+		return 0, 0, false
+	}
 }
 
 func (a *App) handleGetJob(w http.ResponseWriter, r *http.Request) {

@@ -72,7 +72,7 @@ func (a *App) saveImage(jobID string, bytes []byte) (string, error) {
 	return name, nil
 }
 
-func (a *App) processGenerateJob(parent context.Context, job storage.Job) {
+func (a *App) processGenerateJob(parent context.Context, job storage.Job, width, height int) {
 	ctx := context.Background()
 	if parent != nil {
 		ctx = parent
@@ -87,8 +87,8 @@ func (a *App) processGenerateJob(parent context.Context, job storage.Job) {
 	result, err := a.comfy.GenerateWithProgress(ctx, comfy.GenerateInput{
 		PositivePrompt: job.PromptFinal,
 		NegativePrompt: job.NegativePrompt,
-		Width:          1152,
-		Height:         768,
+		Width:          width,
+		Height:         height,
 		Steps:          28,
 		CFG:            4,
 		Sampler:        "dpmpp_2m_sde_gpu",
