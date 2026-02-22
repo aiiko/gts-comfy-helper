@@ -19,15 +19,19 @@ import (
 const maxRequestBodyBytes = 1 << 20
 
 type settingsPayload struct {
-	PositiveTags string `json:"positive_tags"`
-	NegativeTags string `json:"negative_tags"`
+	PositiveTags    *string `json:"positive_tags"`
+	NegativeTags    *string `json:"negative_tags"`
+	LastAspectRatio *string `json:"last_aspect_ratio"`
 }
 
 type generatePayload struct {
-	Prompt      string `json:"prompt"`
-	AspectRatio string `json:"aspect_ratio"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
+	Prompt         string `json:"prompt"`
+	ArtStyle       string `json:"art_style"`
+	BodyFraming    string `json:"body_framing"`
+	CameraSelector string `json:"camera_selector"`
+	AspectRatio    string `json:"aspect_ratio"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
 }
 
 func (a *App) handleGetSettings(w http.ResponseWriter, r *http.Request) {
@@ -48,21 +52,45 @@ func (a *App) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSONBody(w, r, &payload) {
 		return
 	}
-	payload.PositiveTags = strings.TrimSpace(payload.PositiveTags)
-	payload.NegativeTags = strings.TrimSpace(payload.NegativeTags)
 
-	if err := a.db.UpsertSettings(r.Context(), map[string]string{
-		"positive_tags": payload.PositiveTags,
-		"negative_tags": payload.NegativeTags,
-	}); err != nil {
+	values := make(map[string]string)
+	if payload.PositiveTags != nil {
+		values["positive_tags"] = strings.TrimSpace(*payload.PositiveTags)
+	}
+	if payload.NegativeTags != nil {
+		values["negative_tags"] = strings.TrimSpace(*payload.NegativeTags)
+	}
+	if payload.LastAspectRatio != nil {
+		aspectRatio := strings.ToLower(strings.TrimSpace(*payload.LastAspectRatio))
+		if aspectRatio == "" {
+			aspectRatio = "square"
+		}
+		if _, _, ok := dimensionsForAspect(aspectRatio); !ok {
+			writeAPIError(w, http.StatusBadRequest, "invalid_request", "last_aspect_ratio must be portrait, square, or landscape")
+			return
+		}
+		values["last_aspect_ratio"] = aspectRatio
+	}
+	if len(values) == 0 {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "at least one settings field is required")
+		return
+	}
+
+	if err := a.db.UpsertSettings(r.Context(), values); err != nil {
 		writeAPIError(w, http.StatusInternalServerError, "internal_error", "save settings: "+err.Error())
 		return
 	}
 
+	settings, err := a.db.Settings(r.Context())
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "load settings: "+err.Error())
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":            true,
-		"positive_tags": payload.PositiveTags,
-		"negative_tags": payload.NegativeTags,
+		"ok":                true,
+		"positive_tags":     strings.TrimSpace(settings["positive_tags"]),
+		"negative_tags":     strings.TrimSpace(settings["negative_tags"]),
+		"last_aspect_ratio": strings.TrimSpace(settings["last_aspect_ratio"]),
 	})
 }
 
@@ -89,10 +117,19 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request", "width/height do not match aspect_ratio")
 		return
 	}
-	if err := a.db.UpsertSettings(r.Context(), map[string]string{
-		"last_aspect_ratio": aspectRatio,
-	}); err != nil {
-		writeAPIError(w, http.StatusInternalServerError, "internal_error", "save generation settings: "+err.Error())
+	cameraSelector, ok := canonicalOption(payload.CameraSelector, cameraSelectorOptionsMap)
+	if !ok {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "camera_selector must match one of supported camera selector values")
+		return
+	}
+	artStyle, ok := canonicalOption(payload.ArtStyle, artStyleOptionsMap)
+	if !ok {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "art_style must match one of supported art styles")
+		return
+	}
+	bodyFraming, ok := canonicalOption(payload.BodyFraming, bodyFramingOptionsMap)
+	if !ok {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "body_framing must match one of supported body framing values")
 		return
 	}
 
@@ -103,11 +140,7 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	positive := strings.TrimSpace(settings["positive_tags"])
 	negative := strings.TrimSpace(settings["negative_tags"])
-
-	finalPrompt := payload.Prompt
-	if positive != "" {
-		finalPrompt = positive + ", " + payload.Prompt
-	}
+	finalPrompt := buildFinalPrompt(positive, payload.Prompt, artStyle, bodyFraming, cameraSelector)
 
 	job, err := a.db.CreateJob(r.Context(), storage.Job{
 		ID:             uuid.NewString(),

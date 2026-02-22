@@ -12,7 +12,10 @@ Aplicacion basica en Go + HTML + JavaScript + CSS para generar imagenes en Comfy
   - `positive_tags`
   - `negative_tags`
   - `last_aspect_ratio`
+  - `last_camera_selector`
+- Selector opcional de camera angle cargado desde JSON embebido (`internal/server/camera_options.json`)
 - `positive_tags` se anteponen al prompt del usuario
+- Orden actual del prompt final (backend): `positive_tags`, `prompt`, `camera_selector` (si existe)
 - Workflow JSON basado en `GTS-VN-Sim`
 
 ## Variables de entorno
@@ -40,6 +43,7 @@ Luego abrir:
 
 - `GET /api/settings`
 - `PUT /api/settings`
+- `GET /api/camera-options`
 - `POST /api/generate`
 - `GET /api/jobs/{id}`
 - `GET /api/jobs/{id}/preview?since_seq=0`

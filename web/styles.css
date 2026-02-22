@@ -57,6 +57,34 @@ h2 {
   gap: 0.6rem;
 }
 
+.prompt-row-inline {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.prompt-selectors-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.icon-label svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: #93a8da;
+  flex: 0 0 auto;
+}
+
+.icon-label span {
+  min-width: 0;
+}
+
 .aspect-row {
   display: grid;
   gap: 0.45rem;
@@ -124,7 +152,18 @@ textarea {
   resize: vertical;
 }
 
+select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #2f3f64;
+  background: rgba(8, 14, 26, 0.85);
+  color: var(--text);
+  padding: 0.72rem 0.85rem;
+  font: inherit;
+}
+
 textarea:focus,
+select:focus,
 button:focus {
   outline: 2px solid var(--accent-2);
   outline-offset: 2px;
@@ -287,6 +326,10 @@ button.ghost {
   }
 
   .aspect-options {
+    grid-template-columns: 1fr;
+  }
+
+  .prompt-selectors-row {
     grid-template-columns: 1fr;
   }
 }

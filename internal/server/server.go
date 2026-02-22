@@ -124,5 +124,23 @@ func (a *App) processGenerateJob(parent context.Context, job storage.Job, width,
 		_ = a.db.UpdateJobFailed(context.Background(), job.ID, err.Error())
 		return
 	}
+	if aspectRatio, ok := aspectFromDimensions(width, height); ok {
+		_ = a.db.UpsertSettings(context.Background(), map[string]string{
+			"last_aspect_ratio": aspectRatio,
+		})
+	}
 	a.previewHub.setDone(job.ID)
+}
+
+func aspectFromDimensions(width, height int) (string, bool) {
+	switch {
+	case width == 896 && height == 1152:
+		return "portrait", true
+	case width == 1024 && height == 1024:
+		return "square", true
+	case width == 1152 && height == 896:
+		return "landscape", true
+	default:
+		return "", false
+	}
 }

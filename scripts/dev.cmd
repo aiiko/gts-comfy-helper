@@ -27,6 +27,8 @@ echo [INFO] HOST=%HOST%
 echo [INFO] PORT=%PORT%
 echo [INFO] DATA_DIR=%DATA_DIR%
 echo [INFO] COMFYUI_BASE_URL=%COMFYUI_BASE_URL%
+set "APP_URL=http://%HOST%:%PORT%"
+set "HEALTH_URL=%APP_URL%/api/health"
 
 goto :run
 
@@ -45,7 +47,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [INFO] Levantando servidor en http://%HOST%:%PORT%
+where powershell >nul 2>nul
+if errorlevel 1 (
+  echo [WARN] PowerShell no esta disponible. Se omite auto-open del navegador.
+) else (
+  echo [INFO] Se abrira el navegador cuando el servidor responda en %HEALTH_URL%
+  start "" /B powershell -NoProfile -ExecutionPolicy Bypass -Command "$u='%HEALTH_URL%'; $app='%APP_URL%'; for($i=0; $i -lt 180; $i++){ try { $r=Invoke-WebRequest -UseBasicParsing -Uri $u -TimeoutSec 2; if($r.StatusCode -ge 200 -and $r.StatusCode -lt 500){ Start-Process $app; exit 0 } } catch {} Start-Sleep -Seconds 1 }"
+)
+
+echo [INFO] Levantando servidor en %APP_URL%
 go run ./cmd/server
 set "EXIT_CODE=%ERRORLEVEL%"
 

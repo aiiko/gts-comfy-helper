@@ -10,13 +10,18 @@ const statusPillEl = document.getElementById('statusPill')
 const metaLineEl = document.getElementById('metaLine')
 const positiveTagsEl = document.getElementById('positiveTags')
 const negativeTagsEl = document.getElementById('negativeTags')
+const artStyleSelectorEl = document.getElementById('artStyleSelector')
+const bodyFramingSelectorEl = document.getElementById('bodyFramingSelector')
+const cameraSelectorEl = document.getElementById('cameraSelector')
 const saveSettingsBtn = document.getElementById('saveSettingsBtn')
 const saveStatusEl = document.getElementById('saveStatus')
 
 let activeJobID = ''
+let activeJobAspectRatio = ''
 let previewSeq = 0
 let previewTimer = null
 let jobTimer = null
+const lastAspectStorageKey = 'gts_last_aspect_ratio'
 const aspectSizeMap = {
   portrait: { width: 896, height: 1152 },
   square: { width: 1024, height: 1024 },
@@ -30,11 +35,45 @@ function selectedAspectRatio() {
   return 'square'
 }
 
+function selectedCameraSelector() {
+  if (!cameraSelectorEl) return ''
+  return String(cameraSelectorEl.value || '').trim()
+}
+
+function selectedArtStyle() {
+  if (!artStyleSelectorEl) return ''
+  return String(artStyleSelectorEl.value || '').trim()
+}
+
+function selectedBodyFraming() {
+  if (!bodyFramingSelectorEl) return ''
+  return String(bodyFramingSelectorEl.value || '').trim()
+}
+
 function setAspectRatio(value) {
   const normalized = String(value || '').trim().toLowerCase()
   const target = aspectSizeMap[normalized] ? normalized : 'square'
   for (const optionEl of aspectRatioEls) {
     optionEl.checked = optionEl.value === target
+  }
+}
+
+function loadAspectRatioFromStorage() {
+  try {
+    const stored = String(localStorage.getItem(lastAspectStorageKey) || '').trim().toLowerCase()
+    return aspectSizeMap[stored] ? stored : ''
+  } catch {
+    return ''
+  }
+}
+
+function saveAspectRatioToStorage(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!aspectSizeMap[normalized]) return
+  try {
+    localStorage.setItem(lastAspectStorageKey, normalized)
+  } catch {
+    // Ignore browser storage errors.
   }
 }
 
@@ -94,7 +133,9 @@ async function loadSettings() {
     const settings = await requestJSON('/api/settings')
     positiveTagsEl.value = settings.positive_tags || ''
     negativeTagsEl.value = settings.negative_tags || ''
-    setAspectRatio(settings.last_aspect_ratio)
+    const fromAPI = String(settings.last_aspect_ratio || '').trim().toLowerCase()
+    const fromStorage = loadAspectRatioFromStorage()
+    setAspectRatio(fromStorage || fromAPI)
     saveStatusEl.textContent = 'Configuración cargada.'
   } catch (error) {
     saveStatusEl.textContent = `Error cargando configuración: ${error.message}`
@@ -118,6 +159,20 @@ async function saveSettings() {
     saveStatusEl.textContent = `Error guardando configuración: ${error.message}`
   } finally {
     saveSettingsBtn.disabled = false
+  }
+}
+
+async function saveLastGenerationSettings(aspectRatio) {
+  const normalized = String(aspectRatio || '').trim().toLowerCase()
+  if (!aspectSizeMap[normalized]) return
+  saveAspectRatioToStorage(normalized)
+  try {
+    await requestJSON('/api/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ last_aspect_ratio: normalized }),
+    })
+  } catch (error) {
+    metaLineEl.textContent = `Error guardando aspect ratio: ${error.message}`
   }
 }
 
@@ -173,11 +228,14 @@ async function pollJobStatus() {
       if (job.asset_url) {
         setPreviewImage(job.asset_url)
       }
+      void saveLastGenerationSettings(activeJobAspectRatio || selectedAspectRatio())
+      activeJobAspectRatio = ''
       metaLineEl.textContent = 'Imagen final generada.'
       stopPolling()
       return
     }
     if (status === 'failed') {
+      activeJobAspectRatio = ''
       setPill('failed', 'Error')
       metaLineEl.textContent = job.error || 'La generación falló.'
       stopPolling()
@@ -199,6 +257,7 @@ async function generate() {
   }
   const aspectRatio = selectedAspectRatio()
   const size = aspectSizeMap[aspectRatio] || aspectSizeMap.square
+  activeJobAspectRatio = aspectRatio
   generateBtn.disabled = true
   stopPolling()
   previewSeq = 0
@@ -212,6 +271,9 @@ async function generate() {
       method: 'POST',
       body: JSON.stringify({
         prompt,
+        art_style: selectedArtStyle(),
+        body_framing: selectedBodyFraming(),
+        camera_selector: selectedCameraSelector(),
         aspect_ratio: aspectRatio,
         width: size.width,
         height: size.height,
@@ -222,6 +284,7 @@ async function generate() {
     pollPreview()
     pollJobStatus()
   } catch (error) {
+    activeJobAspectRatio = ''
     setPill('failed', 'Error')
     metaLineEl.textContent = `Error generando: ${error.message}`
   } finally {
@@ -260,4 +323,10 @@ document.addEventListener('keydown', (event) => {
 })
 
 resetPreview()
-void loadSettings()
+void (async () => {
+  try {
+    await loadSettings()
+  } catch (error) {
+    saveStatusEl.textContent = `Error cargando configuración: ${error.message}`
+  }
+})()
