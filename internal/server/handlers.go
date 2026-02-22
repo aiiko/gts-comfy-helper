@@ -1,0 +1,247 @@
+package server
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"gts-comfy-helper/internal/storage"
+)
+
+const maxRequestBodyBytes = 1 << 20
+
+type settingsPayload struct {
+	PositiveTags string `json:"positive_tags"`
+	NegativeTags string `json:"negative_tags"`
+}
+
+type generatePayload struct {
+	Prompt string `json:"prompt"`
+}
+
+func (a *App) handleGetSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := a.db.Settings(r.Context())
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "load settings: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"positive_tags": strings.TrimSpace(settings["positive_tags"]),
+		"negative_tags": strings.TrimSpace(settings["negative_tags"]),
+	})
+}
+
+func (a *App) handlePutSettings(w http.ResponseWriter, r *http.Request) {
+	var payload settingsPayload
+	if !decodeJSONBody(w, r, &payload) {
+		return
+	}
+	payload.PositiveTags = strings.TrimSpace(payload.PositiveTags)
+	payload.NegativeTags = strings.TrimSpace(payload.NegativeTags)
+
+	if err := a.db.UpsertSettings(r.Context(), map[string]string{
+		"positive_tags": payload.PositiveTags,
+		"negative_tags": payload.NegativeTags,
+	}); err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "save settings: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":            true,
+		"positive_tags": payload.PositiveTags,
+		"negative_tags": payload.NegativeTags,
+	})
+}
+
+func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
+	var payload generatePayload
+	if !decodeJSONBody(w, r, &payload) {
+		return
+	}
+	payload.Prompt = strings.TrimSpace(payload.Prompt)
+	if payload.Prompt == "" {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "prompt is required")
+		return
+	}
+
+	settings, err := a.db.Settings(r.Context())
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "load settings: "+err.Error())
+		return
+	}
+	positive := strings.TrimSpace(settings["positive_tags"])
+	negative := strings.TrimSpace(settings["negative_tags"])
+
+	finalPrompt := payload.Prompt
+	if positive != "" {
+		finalPrompt = positive + ", " + payload.Prompt
+	}
+
+	job, err := a.db.CreateJob(r.Context(), storage.Job{
+		ID:             uuid.NewString(),
+		Status:         storage.JobStatusQueued,
+		PromptRaw:      payload.Prompt,
+		PromptFinal:    finalPrompt,
+		NegativePrompt: negative,
+	})
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "create job: "+err.Error())
+		return
+	}
+
+	go a.processGenerateJob(context.Background(), job)
+
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"job_id": job.ID,
+		"status": job.Status,
+	})
+}
+
+func (a *App) handleGetJob(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "job id is required")
+		return
+	}
+	job, err := a.db.GetJob(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			writeAPIError(w, http.StatusNotFound, "not_found", "job not found")
+			return
+		}
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "get job: "+err.Error())
+		return
+	}
+	assetURL := ""
+	if strings.TrimSpace(job.OutputFile) != "" {
+		assetURL = "/assets/" + strings.TrimSpace(job.OutputFile)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"job_id":       job.ID,
+		"status":       job.Status,
+		"error":        job.Error,
+		"asset_url":    assetURL,
+		"prompt_final": job.PromptFinal,
+	})
+}
+
+func (a *App) handleGetJobPreview(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeAPIError(w, http.StatusBadRequest, "invalid_request", "job id is required")
+		return
+	}
+	job, err := a.db.GetJob(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			writeAPIError(w, http.StatusNotFound, "not_found", "job not found")
+			return
+		}
+		writeAPIError(w, http.StatusInternalServerError, "internal_error", "get job: "+err.Error())
+		return
+	}
+
+	sinceSeq := int64(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("since_seq")); raw != "" {
+		parsed, parseErr := strconv.ParseInt(raw, 10, 64)
+		if parseErr != nil || parsed < 0 {
+			writeAPIError(w, http.StatusBadRequest, "invalid_request", "since_seq must be a non-negative integer")
+			return
+		}
+		sinceSeq = parsed
+	}
+
+	snapshot := a.previewHub.get(id, sinceSeq)
+	previewStatus := previewStatusWaiting
+	warning := ""
+	seq := int64(0)
+	promptID := strings.TrimSpace(job.ComfyPromptID)
+	updatedAt := ""
+	framePayload := map[string]any(nil)
+
+	if snapshot.Found {
+		previewStatus = snapshot.Status
+		warning = snapshot.Warning
+		seq = snapshot.Seq
+		if strings.TrimSpace(snapshot.PromptID) != "" {
+			promptID = snapshot.PromptID
+		}
+		if !snapshot.UpdatedAt.IsZero() {
+			updatedAt = snapshot.UpdatedAt.UTC().Format(time.RFC3339Nano)
+		}
+		if snapshot.NewerFrame && len(snapshot.Frame) > 0 {
+			framePayload = map[string]any{
+				"seq":         snapshot.Seq,
+				"mime":        snapshot.MIME,
+				"data_base64": base64.StdEncoding.EncodeToString(snapshot.Frame),
+			}
+		}
+	} else {
+		switch job.Status {
+		case storage.JobStatusDone:
+			previewStatus = previewStatusDone
+		case storage.JobStatusFailed:
+			previewStatus = previewStatusFailed
+			warning = strings.TrimSpace(job.Error)
+		default:
+			previewStatus = previewStatusWaiting
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"job_id":         job.ID,
+		"job_status":     job.Status,
+		"preview_status": previewStatus,
+		"prompt_id":      promptID,
+		"seq":            seq,
+		"updated_at":     updatedAt,
+		"warning":        warning,
+		"frame":          framePayload,
+	})
+}
+
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	defer r.Body.Close()
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(dst); err != nil {
+		if errors.Is(err, io.EOF) {
+			writeAPIError(w, http.StatusBadRequest, "invalid_json", "request body is required")
+			return false
+		}
+		writeAPIError(w, http.StatusBadRequest, "invalid_json", err.Error())
+		return false
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		writeAPIError(w, http.StatusBadRequest, "invalid_json", "request body must contain a single JSON object")
+		return false
+	}
+	return true
+}
+
+func writeAPIError(w http.ResponseWriter, status int, code, message string) {
+	writeJSON(w, status, map[string]any{
+		"error": map[string]any{
+			"code":    strings.TrimSpace(code),
+			"message": strings.TrimSpace(message),
+		},
+	})
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
+}
