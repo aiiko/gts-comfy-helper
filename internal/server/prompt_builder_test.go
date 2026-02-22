@@ -33,7 +33,7 @@ func TestBuildFinalPromptSkipsEmptyOptionals(t *testing.T) {
 }
 
 func TestBuildCharacterDefinitionCountMode(t *testing.T) {
-	got, err := buildCharacterDefinition(1, "count", 2, "female", "")
+	got, err := buildCharacterDefinition(1, "", "count", 2, "female", "", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestBuildCharacterDefinitionCountMode(t *testing.T) {
 }
 
 func TestBuildCharacterDefinitionCountModeWithDescriptor(t *testing.T) {
-	got, err := buildCharacterDefinition(2, "count", 10, "", " white ")
+	got, err := buildCharacterDefinition(2, "", "count", 10, "", " white ", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestBuildCharacterDefinitionCountModeWithDescriptor(t *testing.T) {
 }
 
 func TestBuildCharacterDefinitionGroupMode(t *testing.T) {
-	got, err := buildCharacterDefinition(1, "group", 1, "male", "white")
+	got, err := buildCharacterDefinition(1, "", "group", 1, "male", "white", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,13 +66,32 @@ func TestBuildCharacterDefinitionGroupMode(t *testing.T) {
 }
 
 func TestBuildCharacterDefinitionRejectsInvalidInputs(t *testing.T) {
-	if _, err := buildCharacterDefinition(3, "count", 1, "", ""); err == nil {
+	if _, err := buildCharacterDefinition(3, "", "count", 1, "", "", ""); err == nil {
 		t.Fatalf("expected error for invalid giantess count")
 	}
-	if _, err := buildCharacterDefinition(1, "count", 0, "", ""); err == nil {
+	if _, err := buildCharacterDefinition(1, "", "count", 0, "", "", ""); err == nil {
 		t.Fatalf("expected error for invalid tiny count")
 	}
-	if _, err := buildCharacterDefinition(1, "invalid", 1, "", ""); err == nil {
+	if _, err := buildCharacterDefinition(1, "", "invalid", 1, "", "", ""); err == nil {
 		t.Fatalf("expected error for invalid tinies mode")
+	}
+}
+
+func TestBuildCharacterDefinitionWithActions(t *testing.T) {
+	got, err := buildCharacterDefinition(
+		1,
+		"Destroying  Buildings",
+		"count",
+		2,
+		"",
+		"",
+		"  climbing   her leg ",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "1girl, a giantess girl destroying buildings, 2 tinies climbing her leg"
+	if got != want {
+		t.Fatalf("character definition mismatch:\nwant: %q\ngot:  %q", want, got)
 	}
 }

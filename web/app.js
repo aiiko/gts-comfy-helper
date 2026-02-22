@@ -14,12 +14,16 @@ const artStyleSelectorEl = document.getElementById('artStyleSelector')
 const bodyFramingSelectorEl = document.getElementById('bodyFramingSelector')
 const cameraSelectorEl = document.getElementById('cameraSelector')
 const giantessCountEl = document.getElementById('giantessCount')
+const giantessActionEl = document.getElementById('giantessAction')
 const tiniesModeEl = document.getElementById('tiniesMode')
 const tinyCountWrapEl = document.getElementById('tinyCountWrap')
 const tinyCountEl = document.getElementById('tinyCount')
+const tinyCountDecEl = document.getElementById('tinyCountDec')
+const tinyCountIncEl = document.getElementById('tinyCountInc')
 const tinyGenderWrapEl = document.getElementById('tinyGenderWrap')
 const tinyGenderEl = document.getElementById('tinyGender')
 const tinyDescriptorEl = document.getElementById('tinyDescriptor')
+const tinyActionEl = document.getElementById('tinyAction')
 const saveSettingsBtn = document.getElementById('saveSettingsBtn')
 const saveStatusEl = document.getElementById('saveStatus')
 
@@ -69,11 +73,22 @@ function selectedTiniesMode() {
   return mode === 'group' ? 'group' : 'count'
 }
 
+function selectedGiantessAction() {
+  if (!giantessActionEl) return ''
+  return String(giantessActionEl.value || '').trim()
+}
+
 function selectedTinyCount() {
   if (!tinyCountEl) return 1
   const value = Number.parseInt(String(tinyCountEl.value || '').trim(), 10)
   if (!Number.isFinite(value) || value <= 0) return 1
   return value
+}
+
+function setTinyCount(value) {
+  if (!tinyCountEl) return
+  const next = Number.parseInt(String(value || '').trim(), 10)
+  tinyCountEl.value = String(Number.isFinite(next) && next > 0 ? next : 1)
 }
 
 function selectedTinyGender() {
@@ -84,6 +99,11 @@ function selectedTinyGender() {
 function selectedTinyDescriptor() {
   if (!tinyDescriptorEl) return ''
   return String(tinyDescriptorEl.value || '').trim()
+}
+
+function selectedTinyAction() {
+  if (!tinyActionEl) return ''
+  return String(tinyActionEl.value || '').trim()
 }
 
 function syncTiniesModeUI() {
@@ -97,9 +117,21 @@ function syncTiniesModeUI() {
   if (tinyCountEl) {
     tinyCountEl.disabled = isGroup
   }
+  if (tinyCountDecEl) {
+    tinyCountDecEl.disabled = isGroup
+  }
+  if (tinyCountIncEl) {
+    tinyCountIncEl.disabled = isGroup
+  }
   if (tinyGenderEl) {
     tinyGenderEl.disabled = isGroup
   }
+}
+
+function stepTinyCount(delta) {
+  const current = selectedTinyCount()
+  const next = current + Number.parseInt(String(delta || 0), 10)
+  setTinyCount(next < 1 ? 1 : next)
 }
 
 function setAspectRatio(value) {
@@ -320,10 +352,12 @@ async function generate() {
       body: JSON.stringify({
         prompt,
         giantess_count: selectedGiantessCount(),
+        giantess_action: selectedGiantessAction(),
         tinies_mode: selectedTiniesMode(),
         tiny_count: selectedTinyCount(),
         tiny_gender: selectedTinyGender(),
         tiny_descriptor: selectedTinyDescriptor(),
+        tiny_action: selectedTinyAction(),
         art_style: selectedArtStyle(),
         body_framing: selectedBodyFraming(),
         camera_selector: selectedCameraSelector(),
@@ -372,6 +406,21 @@ imageModalEl.addEventListener('click', (event) => {
 if (tiniesModeEl) {
   tiniesModeEl.addEventListener('change', () => {
     syncTiniesModeUI()
+  })
+}
+if (tinyCountDecEl) {
+  tinyCountDecEl.addEventListener('click', () => {
+    stepTinyCount(-1)
+  })
+}
+if (tinyCountIncEl) {
+  tinyCountIncEl.addEventListener('click', () => {
+    stepTinyCount(1)
+  })
+}
+if (tinyCountEl) {
+  tinyCountEl.addEventListener('blur', () => {
+    setTinyCount(tinyCountEl.value)
   })
 }
 document.addEventListener('keydown', (event) => {

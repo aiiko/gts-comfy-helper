@@ -1,11 +1,16 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"gts-comfy-helper/internal/storage"
 )
 
 func TestHandleGenerateRejectsInvalidCharacterFields(t *testing.T) {
@@ -64,5 +69,39 @@ func TestHandleGenerateRejectsInvalidCharacterFields(t *testing.T) {
 				t.Fatalf("error mismatch: want to contain %q, got %q", tt.wantText, message)
 			}
 		})
+	}
+}
+
+func TestHandleGenerateAcceptsActionFields(t *testing.T) {
+	db, err := storage.Open(context.Background(), filepath.Join(t.TempDir(), "test.sqlite"))
+	if err != nil {
+		t.Fatalf("open test db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	app := &App{
+		db:         db,
+		previewHub: newPreviewHub(time.Minute),
+	}
+
+	body := `{
+		"prompt":"scene",
+		"giantess_count":1,
+		"giantess_action":"destroying buildings",
+		"tinies_mode":"count",
+		"tiny_count":2,
+		"tiny_action":"climbing her leg"
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/generate", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	app.handleGenerate(w, req)
+
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("status mismatch: want %d, got %d body=%s", http.StatusAccepted, w.Code, w.Body.String())
 	}
 }

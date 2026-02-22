@@ -29,34 +29,45 @@ func buildFinalPrompt(positiveTags, characterDefinition, userPrompt, artStyle, b
 	return strings.Join(parts, ", ")
 }
 
-func buildCharacterDefinition(giantessCount int, tiniesMode string, tinyCount int, tinyGender, tinyDescriptor string) (string, error) {
-	giantessPhrase, err := buildGiantessPhrase(giantessCount)
+func buildCharacterDefinition(giantessCount int, giantessAction, tiniesMode string, tinyCount int, tinyGender, tinyDescriptor, tinyAction string) (string, error) {
+	giantessPhrase, err := buildGiantessPhrase(giantessCount, giantessAction)
 	if err != nil {
 		return "", err
 	}
-	tiniesPhrase, err := buildTiniesPhrase(tiniesMode, tinyCount, tinyGender, tinyDescriptor)
+	tiniesPhrase, err := buildTiniesPhrase(tiniesMode, tinyCount, tinyGender, tinyDescriptor, tinyAction)
 	if err != nil {
 		return "", err
 	}
 	return giantessPhrase + ", " + tiniesPhrase, nil
 }
 
-func buildGiantessPhrase(giantessCount int) (string, error) {
+func buildGiantessPhrase(giantessCount int, giantessAction string) (string, error) {
+	action := normalizeText(giantessAction)
 	switch giantessCount {
 	case 1:
-		return "1girl, a giantess girl", nil
+		phrase := "1girl, a giantess girl"
+		if action != "" {
+			phrase += " " + action
+		}
+		return phrase, nil
 	case 2:
-		return "2girls, two giantess girls", nil
+		phrase := "2girls, two giantess girls"
+		if action != "" {
+			phrase += " " + action
+		}
+		return phrase, nil
 	default:
 		return "", fmt.Errorf("giantess_count must be 1 or 2")
 	}
 }
 
-func buildTiniesPhrase(tiniesMode string, tinyCount int, tinyGender, tinyDescriptor string) (string, error) {
+func buildTiniesPhrase(tiniesMode string, tinyCount int, tinyGender, tinyDescriptor, tinyAction string) (string, error) {
 	mode := strings.TrimSpace(strings.ToLower(tiniesMode))
-	descriptor := normalizeDescriptor(tinyDescriptor)
+	descriptor := normalizeText(tinyDescriptor)
 	gender := strings.TrimSpace(strings.ToLower(tinyGender))
+	action := normalizeText(tinyAction)
 
+	phrase := ""
 	switch mode {
 	case "count":
 		if tinyCount <= 0 {
@@ -74,19 +85,24 @@ func buildTiniesPhrase(tiniesMode string, tinyCount int, tinyGender, tinyDescrip
 			parts = append(parts, descriptor)
 		}
 		parts = append(parts, noun)
-		return strings.Join(parts, " "), nil
+		phrase = strings.Join(parts, " ")
 	case "group":
 		parts := []string{"a group of"}
 		if descriptor != "" {
 			parts = append(parts, descriptor)
 		}
 		parts = append(parts, "tinies")
-		return strings.Join(parts, " "), nil
+		phrase = strings.Join(parts, " ")
 	default:
 		return "", fmt.Errorf("tinies_mode must be count or group")
 	}
+
+	if action != "" {
+		phrase += " " + action
+	}
+	return phrase, nil
 }
 
-func normalizeDescriptor(raw string) string {
+func normalizeText(raw string) string {
 	return strings.ToLower(strings.Join(strings.Fields(raw), " "))
 }

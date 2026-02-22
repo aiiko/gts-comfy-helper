@@ -27,10 +27,12 @@ type settingsPayload struct {
 type generatePayload struct {
 	Prompt         string `json:"prompt"`
 	GiantessCount  int    `json:"giantess_count"`
+	GiantessAction string `json:"giantess_action"`
 	TiniesMode     string `json:"tinies_mode"`
 	TinyCount      int    `json:"tiny_count"`
 	TinyGender     string `json:"tiny_gender"`
 	TinyDescriptor string `json:"tiny_descriptor"`
+	TinyAction     string `json:"tiny_action"`
 	ArtStyle       string `json:"art_style"`
 	BodyFraming    string `json:"body_framing"`
 	CameraSelector string `json:"camera_selector"`
@@ -151,7 +153,15 @@ func (a *App) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request", "tiny_count must be a positive integer when tinies_mode is count")
 		return
 	}
-	characterDefinition, err := buildCharacterDefinition(payload.GiantessCount, tiniesMode, payload.TinyCount, tinyGender, payload.TinyDescriptor)
+	characterDefinition, err := buildCharacterDefinition(
+		payload.GiantessCount,
+		payload.GiantessAction,
+		tiniesMode,
+		payload.TinyCount,
+		tinyGender,
+		payload.TinyDescriptor,
+		payload.TinyAction,
+	)
 	if err != nil {
 		writeAPIError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return

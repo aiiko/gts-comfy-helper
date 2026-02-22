@@ -52,6 +52,12 @@ h3 {
   font-size: 1rem;
 }
 
+h4 {
+  margin: 0;
+  letter-spacing: 0.2px;
+  font-size: 0.95rem;
+}
+
 .subtitle {
   margin: 0.4rem 0 0;
   color: var(--muted);
@@ -82,8 +88,23 @@ h3 {
 
 .character-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
+}
+
+.character-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.character-subsection {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid #304167;
+  border-radius: 12px;
+  padding: 0.65rem;
+  background: rgba(8, 14, 26, 0.35);
 }
 
 .icon-label {
@@ -211,6 +232,30 @@ button {
   cursor: pointer;
   color: #02170f;
   background: linear-gradient(140deg, var(--accent), #59f0be);
+}
+
+.tiny-count-control {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.tiny-step-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  border: 1px solid #3a4c77;
+  background: rgba(8, 14, 26, 0.85);
+  color: #dbe5ff;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.tiny-step-btn:hover:not(:disabled) {
+  border-color: #62eec0;
 }
 
 button:disabled {
@@ -367,6 +412,10 @@ button.ghost {
   }
 
   .character-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .character-sections-grid {
     grid-template-columns: 1fr;
   }
 }
